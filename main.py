@@ -71,66 +71,70 @@ def create_missing_tables(connection):
         existing_tables = [table[0] for table in cursor.fetchall()]
 
         # Проверяем, какие таблицы еще не созданы и создаем их
-        missing_tables = { "Enterprises","ActivityType", "EnterpriseContacts", "EnterpriseEmails", "EnterpriseManagers",
+        missing_tables = {"ActivityType", "Enterprises", "EnterpriseContacts", "EnterpriseEmails", "EnterpriseManagers",
                           "EnterpriseLocations"} - set(existing_tables)
 
         for table in missing_tables:
             if table == "ActivityType":
                 cursor.execute("""
                     CREATE TABLE IF NOT EXISTS ActivityType (
-                        IdActivityType VARCHAR(10) PRIMARY KEY,
+                        IdActivityType SERIAL PRIMARY KEY,
                         Name VARCHAR(100)
-                    )
+                    );
                 """)
             elif table == "Enterprises":
                 cursor.execute("""
                     CREATE TABLE IF NOT EXISTS Enterprises (
-                        Id VARCHAR(10) PRIMARY KEY,
+                        Id SERIAL PRIMARY KEY,
                         Name VARCHAR(100),
-                        IdActivityType VARCHAR(10),
+                        IdActivityType INTEGER,
                         FOREIGN KEY (IdActivityType) REFERENCES ActivityType(IdActivityType)
-                    )
+                    );
                 """)
             elif table == "EnterpriseContacts":
                 cursor.execute("""
                     CREATE TABLE IF NOT EXISTS EnterpriseContacts (
-                        EnterpriseId VARCHAR(10) PRIMARY KEY,
+                        Id SERIAL PRIMARY KEY,
+                        EnterpriseId INTEGER,
                         Phone VARCHAR(20),
                         StartDate DATE,
                         FinishDate DATE,
                         FOREIGN KEY (EnterpriseId) REFERENCES Enterprises(Id)
-                    )
+                    );
                 """)
             elif table == "EnterpriseEmails":
                 cursor.execute("""
                     CREATE TABLE IF NOT EXISTS EnterpriseEmails (
-                        EnterpriseId VARCHAR(10) PRIMARY KEY,
+                        Id SERIAL PRIMARY KEY,
+                        EnterpriseId INTEGER,
                         Email VARCHAR(100),
                         StartDate DATE,
                         FinishDate DATE,
                         FOREIGN KEY (EnterpriseId) REFERENCES Enterprises(Id)
-                    )
+                    );
                 """)
             elif table == "EnterpriseManagers":
                 cursor.execute("""
                     CREATE TABLE IF NOT EXISTS EnterpriseManagers (
-                        ManagerId VARCHAR(10) PRIMARY KEY,
+                        ManagerId SERIAL PRIMARY KEY,
+                        EnterpriseId INTEGER,
                         ManagerName VARCHAR(100),
                         Position VARCHAR(50),
                         StartDate DATE,
                         FinishDate DATE,
-                        FOREIGN KEY (ManagerId) REFERENCES Enterprises(Id)
-                    )
+                        FOREIGN KEY (EnterpriseId) REFERENCES Enterprises(Id)
+                    );
                 """)
             elif table == "EnterpriseLocations":
                 cursor.execute("""
                     CREATE TABLE IF NOT EXISTS EnterpriseLocations (
-                        EnterpriseId VARCHAR(10) PRIMARY KEY,
+                        Id SERIAL PRIMARY KEY,
+                        EnterpriseId INTEGER,
                         Address VARCHAR(100),
                         StartDate DATE,
                         FinishDate DATE,
                         FOREIGN KEY (EnterpriseId) REFERENCES Enterprises(Id)
-                    )
+                    );
                 """)
 
         connection.commit()
@@ -160,11 +164,11 @@ def connect_to_database():
         print("Error connecting to PostgreSQL database:", e)
 
 
-def insert_enterprise(connection, id, name, activity_type_id):
+def insert_enterprise(connection, name, activity_type_id):
     try:
         cursor = connection.cursor()
-        query = "INSERT INTO Enterprises (Id, Name, IdActivityType) VALUES (%s, %s, %s)"
-        cursor.execute(query, (id, name, activity_type_id))
+        query = "INSERT INTO Enterprises (Name, IdActivityType) VALUES (%s, %s)"
+        cursor.execute(query, (name, activity_type_id))
         connection.commit()
         print("Data inserted successfully.")
     except psycopg2.Error as e:
@@ -216,26 +220,54 @@ def count_enterprises_without_email(connection, date):
         print("Error counting enterprises without email:", e)
 
 
-def insert_enterprise_emails(connection, enterprise_id, email, start_date, finish_date=None):
+def insert_enterprise_email(connection, enterprise_id, email, start_date):
     try:
         cursor = connection.cursor()
 
-        # Если finish_date не указан, используем текущую дату
-        if finish_date is None:
-            finish_date = datetime.now().date()
+        # Добавляем finish_date к предыдущей записи, если она существует
+        update_query = """
+            UPDATE EnterpriseEmails 
+            SET FinishDate = %s 
+            WHERE EnterpriseId = %s AND FinishDate IS NULL
+        """
+        cursor.execute(update_query, (start_date, enterprise_id))
 
-        # Обновляем записи с предыдущим адресом электронной почты, чтобы указать их недействительность
-        update_query = "UPDATE EnterpriseEmails SET FinishDate = %s WHERE EnterpriseId = %s AND Email = %s AND FinishDate IS NULL"
-        cursor.execute(update_query, (finish_date, enterprise_id, email))
-
-        # Вставляем новую запись с новым адресом электронной почты
-        insert_query = "INSERT INTO EnterpriseEmails (EnterpriseId, Email, StartDate, FinishDate) VALUES (%s, %s, %s, NULL)"
+        # Вставляем новую запись
+        insert_query = """
+            INSERT INTO EnterpriseEmails (EnterpriseId, Email, StartDate, FinishDate) 
+            VALUES (%s, %s, %s, NULL)
+        """
         cursor.execute(insert_query, (enterprise_id, email, start_date))
 
         connection.commit()
         print("Data inserted successfully.")
     except psycopg2.Error as e:
         print("Error inserting data into EnterpriseEmails table:", e)
+
+
+def insert_enterprise_location(connection, enterprise_id, address, start_date):
+    try:
+        cursor = connection.cursor()
+
+        # Добавляем finish_date к предыдущей записи, если она существует
+        update_query = """
+            UPDATE EnterpriseLocations 
+            SET FinishDate = %s 
+            WHERE EnterpriseId = %s AND FinishDate IS NULL
+        """
+        cursor.execute(update_query, (start_date, enterprise_id))
+
+        # Вставляем новую запись
+        insert_query = """
+            INSERT INTO EnterpriseLocations (EnterpriseId, Address, StartDate, FinishDate) 
+            VALUES (%s, %s, %s, NULL)
+        """
+        cursor.execute(insert_query, (enterprise_id, address, start_date))
+
+        connection.commit()
+        print("Data inserted successfully.")
+    except psycopg2.Error as e:
+        print("Error inserting data into EnterpriseLocations table:", e)
 
 
 def select_contacts_and_emails_by_date(connection, date):
@@ -261,17 +293,60 @@ def select_enterprise_with_most_manager_changes(connection, start_date, end_date
         print("Error selecting enterprise with most manager changes:", e)
 
 
-def insert_manager(connection, manager_id, manager_name, position, start_date=None):
+def out_manager(connection, manager_id):
     try:
-        if start_date is None:
-            start_date = datetime.now().date()
         cursor = connection.cursor()
-        query = "INSERT INTO EnterpriseManagers (ManagerId, ManagerName, Position, StartDate) VALUES (%s, %s, %s, %s)"
-        cursor.execute(query, (manager_id, manager_name, position, start_date))
+        query = "UPDATE EnterpriseManagers SET FinishDate = %s WHERE ManagerId = %s AND FinishDate IS NULL"
+        cursor.execute(query, (datetime.now().date(), manager_id))
         connection.commit()
         print("Manager data inserted successfully.")
     except psycopg2.Error as e:
         print("Error inserting manager data:", e)
+
+
+def insert_manager(connection, enterprise_id, manager_name, position, start_date=None):
+    try:
+        if start_date is None:
+            start_date = datetime.now().date()
+        cursor = connection.cursor()
+        query = "INSERT INTO EnterpriseManagers (EnterpriseId, ManagerName, Position, StartDate) VALUES (%s, %s, %s, %s)"
+        cursor.execute(query, (enterprise_id, manager_name, position, start_date))
+        connection.commit()
+        print("Manager data inserted successfully.")
+    except psycopg2.Error as e:
+        print("Error inserting manager data:", e)
+
+
+def fetch_enterprise_managers(connection):
+    try:
+        cursor = connection.cursor()
+
+        # Выбираем всех менеджеров предприятий
+        select_query = "SELECT * FROM EnterpriseManagers"
+        cursor.execute(select_query)
+        managers = cursor.fetchall()
+
+        print("Enterprise Managers:")
+        for manager in managers:
+            print(manager)
+
+    except psycopg2.Error as e:
+        print("Error fetching managers:", e)
+
+
+def delete_tables(connection):
+    try:
+        cursor = connection.cursor()
+
+        # Выбираем всех менеджеров предприятий
+        query = "DROP TABLE IF EXISTS ActivityType, Enterprises, EnterpriseContacts, EnterpriseEmails, EnterpriseManagers, EnterpriseLocations CASCADE;"
+        cursor.execute(query)
+        answer = cursor.fetchall()
+
+        print(answer)
+
+    except psycopg2.Error as e:
+        print("Error drop:", e)
 
 
 def update_manager_finish_date(connection, manager_id, finish_date=None):
@@ -285,18 +360,21 @@ def update_manager_finish_date(connection, manager_id, finish_date=None):
         print("Manager finish date updated successfully.")
     except psycopg2.Error as e:
         print("Error updating manager finish date:", e)
-def insert_activity_type(connection, id, name):
+
+
+def insert_activity_type(connection, name):
     try:
         cursor = connection.cursor()
         query = """
-            INSERT INTO ActivityType (IdActivityType, Name) 
-            VALUES (%s, %s)
+            INSERT INTO ActivityType (Name) 
+            VALUES (%s)
         """
-        cursor.execute(query, (id, name))
+        cursor.execute(query, (name,))
         connection.commit()
         print("Activity type data inserted successfully.")
     except psycopg2.Error as e:
         print("Error inserting activity type data:", e)
+
 
 def select_all_enterprises(connection):
     try:
@@ -314,6 +392,7 @@ def select_all_enterprises(connection):
     except psycopg2.Error as e:
         print("Error selecting data from Enterprises table:", e)
 
+
 def select_all_activity_types(connection):
     try:
         cursor = connection.cursor()
@@ -328,6 +407,32 @@ def select_all_activity_types(connection):
             print("-----------------------")
     except psycopg2.Error as e:
         print("Error selecting data from ActivityType table:", e)
+
+
+def get_enterprise_emails(connection, enterprise_id):
+    try:
+        cursor = connection.cursor()
+        query = "SELECT * FROM EnterpriseEmails WHERE EnterpriseId = %s AND FinishDate IS NULL"
+        cursor.execute(query, (enterprise_id,))
+        emails = cursor.fetchall()
+        print("Enterprise Emails:")
+        for email in emails:
+            print(email)
+    except psycopg2.Error as e:
+        print("Error fetching enterprise emails:", e)
+
+
+def get_enterprise_locations(connection, enterprise_id):
+    try:
+        cursor = connection.cursor()
+        query = "SELECT * FROM EnterpriseLocations WHERE EnterpriseId = %s"
+        cursor.execute(query, (enterprise_id,))
+        locations = cursor.fetchall()
+        print("Enterprise Locations:")
+        for location in locations:
+            print(location)
+    except psycopg2.Error as e:
+        print("Error fetching enterprise locations:", e)
 
 
 def fetch_enterprise_contacts(connection, enterprise_id):
@@ -349,6 +454,7 @@ def fetch_enterprise_contacts(connection, enterprise_id):
 # Пример использования:
 # Установка соединения с базой данных
 connection = psycopg2.connect(database="postgres", user="postgres", password="1234", host="127.0.0.1", port="5433")
+# delete_tables(connection)
 create_missing_tables(connection)
 # insert_activity_type(connection, "1", "Type A")
 # insert_activity_type(connection, "2", "Type B")
@@ -357,13 +463,101 @@ create_missing_tables(connection)
 # insert_enterprise(connection, "2", "Enterprise 2", "2")
 # insert_enterprise(connection, "3", "Enterprise 3", "3")
 # Вывод данных из таблицы ActivityType
-print("Data from ActivityType table:")
-select_all_activity_types(connection)
+# print("Data from ActivityType table:")
+# select_all_activity_types(connection)
 
 # Вывод данных из таблицы Enterprises
-print("\nData from Enterprises table:")
-select_all_enterprises(connection)
+# print("\nData from Enterprises table:")
+# select_all_enterprises(connection)
+# insert_enterprise_contact(connection, "1", "123-454а56-7890", "2024-04-15", None)
+# fetch_enterprise_contacts(connection, "1")
+# connection.close()
 
-insert_enterprise_contact(connection, "1", "123-454а56-7890", "2024-04-15", None)
-fetch_enterprise_contacts(connection, "1")
-connection.close()
+while True:
+    print("""
+            Выберите пункт меню:
+            1 - добавление предприятия
+            2 - вывод предприятий
+            3 - добавление активности
+            4 - вывод активностей
+            5 - добавление телефонного номера предприятия
+            6 - вывод телефонного номера предприятия
+            7 - добавление адреса предприятия
+            8 - вывод адреса предприятия
+            9 - добавление email предприятия
+            10 - вывод email предприятия
+            11 - добавление работника предприятия
+            12 - вывод работников
+            13 - уволить работника
+    """)
+    a = input()
+    if a == '1':
+        print('Введите name, active')
+        name = input()
+        active = input()
+        insert_enterprise(connection, name, active)
+    elif a == '2':
+        print("\nData from Enterprises table:")
+        select_all_enterprises(connection)
+    elif a == '3':
+        print('Введите id, active')
+        active = input()
+        insert_activity_type(connection, active)
+    elif a == '4':
+        print("Data from ActivityType table:")
+        select_all_activity_types(connection)
+    elif a == '5':
+        print('Введите id, number, date')
+        id = int(input())
+        number = input()
+        date = input()
+        try:
+            insert_enterprise_contact(connection, id, number, date, None)
+        except psycopg2.Error as e:
+            print("Error:", e)
+    elif a == '6':
+        print('Введите ID предприятия')
+        b = input()
+        fetch_enterprise_contacts(connection, b)
+    elif a == '7':
+        print('Введите id, address')
+        id = int(input())
+        address = input()
+        try:
+            insert_enterprise_location(connection, id, address, datetime.now().date())
+        except psycopg2.Error as e:
+            print("Error:", e)
+    elif a == '8':
+        print('Введите ID предприятия')
+        id = int(input())
+        get_enterprise_locations(connection, id)
+    elif a == '9':
+        print('Введите id, email')
+        id = int(input())
+        email = input()
+        try:
+            insert_enterprise_email(connection, id, email, datetime.now().date())
+        except psycopg2.Error as e:
+            print("Error:", e)
+    elif a == '10':
+        print('Введите ID предприятия')
+        id = int(input())
+        get_enterprise_emails(connection, id)
+    elif a == '11':
+        print('Введите id, name, work')
+        id = int(input())
+        name = input()
+        work = input()
+        try:
+            insert_manager(connection, id, name, work, datetime.now().date())
+        except psycopg2.Error as e:
+            print("Error:", e)
+    elif a == '12':
+        fetch_enterprise_managers(connection)
+    elif a == '13':
+        print('Введите id')
+        id = int(input())
+        try:
+            out_manager(connection, id)
+        except psycopg2.Error as e:
+            print("Error:", e)
