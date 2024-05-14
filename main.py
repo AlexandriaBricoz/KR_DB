@@ -88,6 +88,7 @@ def create_missing_tables(connection):
                         Id SERIAL PRIMARY KEY,
                         Name VARCHAR(100),
                         IdActivityType INTEGER,
+                        IdMainEnterprise INTEGER,
                         FOREIGN KEY (IdActivityType) REFERENCES ActivityType(IdActivityType)
                     );
                 """)
@@ -164,11 +165,11 @@ def connect_to_database():
         print("Error connecting to PostgreSQL database:", e)
 
 
-def insert_enterprise(connection, name, activity_type_id):
+def insert_enterprise(connection, name, activity_type_id, IdMainEnterprise=None):
     try:
         cursor = connection.cursor()
-        query = "INSERT INTO Enterprises (Name, IdActivityType) VALUES (%s, %s)"
-        cursor.execute(query, (name, activity_type_id))
+        query = "INSERT INTO Enterprises (Name, IdMainEnterprise, IdActivityType) VALUES (%s, %s, %s)"
+        cursor.execute(query, (name, IdMainEnterprise, activity_type_id))
         connection.commit()
         print("Data inserted successfully.")
     except psycopg2.Error as e:
@@ -456,12 +457,12 @@ def fetch_enterprise_contacts(connection, enterprise_id):
 connection = psycopg2.connect(database="postgres", user="postgres", password="1234", host="127.0.0.1", port="5433")
 # delete_tables(connection)
 create_missing_tables(connection)
-# insert_activity_type(connection, "1", "Type A")
+# insert_activity_type(connection, "Type A")
 # insert_activity_type(connection, "2", "Type B")
 # insert_activity_type(connection, "3", "Type C")
-# insert_enterprise(connection, "1", "Enterprise 1", "1")
-# insert_enterprise(connection, "2", "Enterprise 2", "2")
-# insert_enterprise(connection, "3", "Enterprise 3", "3")
+# insert_enterprise(connection, "Enterprise 1", "1")
+# insert_enterprise(connection, "Enterprise 2", "2")
+# insert_enterprise(connection, "Enterprise 3", "3")
 # Вывод данных из таблицы ActivityType
 # print("Data from ActivityType table:")
 # select_all_activity_types(connection)
@@ -469,7 +470,7 @@ create_missing_tables(connection)
 # Вывод данных из таблицы Enterprises
 # print("\nData from Enterprises table:")
 # select_all_enterprises(connection)
-# insert_enterprise_contact(connection, "1", "123-454а56-7890", "2024-04-15", None)
+# insert_enterprise_contact(connection, "123-454а56-7890", "2024-04-15", None)
 # fetch_enterprise_contacts(connection, "1")
 # connection.close()
 
