@@ -323,6 +323,38 @@ def get_enterprise_emails():
         messagebox.showinfo("Error fetching locations:", e)
 
 
+def select_enterprise_contacts_by_date():
+    try:
+        window = tk.Toplevel(root)
+        window.title("Numbers")
+
+        # Создаем виджет Treeview
+        tree = ttk.Treeview(window, columns=("ID", "EnterpriseId", "Phone", "StartDate", "FinishDate"), show="headings")
+        tree.heading("ID", text="ID")
+        tree.heading("EnterpriseId", text="EnterpriseId")
+        tree.heading("Phone", text="Phone")
+        tree.heading("StartDate", text="StartDate")
+        tree.heading("FinishDate", text="FinishDate")
+
+        cursor = connection.cursor()
+        if finish_entry_z1.get() == '':
+            finish_date = datetime.now().date()
+        else:
+            finish_date = datetime.strptime(finish_entry_z1.get(), "%d.%m.%Y")
+        query = "SELECT * FROM EnterpriseContacts WHERE EnterpriseId = %s AND (StartDate >= %s AND StartDate <= %s ) OR (FinishDate >= %s AND FinishDate <= %s );"
+        cursor.execute(query, (id_entry_z1.get(), datetime.strptime(start_entry_z1.get(), "%d.%m.%Y"),
+                               finish_date, datetime.strptime(start_entry_z1.get(), "%d.%m.%Y"),
+                               finish_date))
+        rows = cursor.fetchall()
+        for enterprise in rows:
+            print(enterprise)
+            enterprise = [str(e) for e in enterprise]
+            tree.insert("", "end", values=enterprise)
+        tree.pack(expand=True, fill="both")
+    except psycopg2.Error as e:
+        messagebox.showinfo("Error fetching contacts:", e)
+
+
 # Создание главного окна
 root = tk.Tk()
 root.title("Enterprise Management System")
@@ -498,6 +530,34 @@ id_entry_worker.grid(row=19, column=1, padx=10, pady=5)
 
 show_button_worker = tk.Button(root, text="Show Workers by ID", command=get_enterprise_emails)
 show_button_worker.grid(row=20, column=0, columnspan=2, padx=10, pady=5)
+
+# Поля для поиска работников
+label_number_worker = tk.Label(root, text="Enterprise ID:")
+label_number_worker.grid(row=19, column=0, padx=10, pady=5, sticky="e")
+id_entry_worker = tk.Entry(root)
+id_entry_worker.grid(row=19, column=1, padx=10, pady=5)
+
+show_button_worker = tk.Button(root, text="Show Workers by ID", command=get_enterprise_emails)
+show_button_worker.grid(row=20, column=0, columnspan=2, padx=10, pady=5)
+
+# Поля для поиска работников
+label_number_z1 = tk.Label(root, text="Enterprise ID:")
+label_number_z1.grid(row=21, column=0, padx=10, pady=5, sticky="e")
+id_entry_z1 = tk.Entry(root)
+id_entry_z1.grid(row=21, column=1, padx=10, pady=5)
+
+label_start_z1 = tk.Label(root, text="Start:")
+label_start_z1.grid(row=22, column=0, padx=10, pady=5, sticky="e")
+start_entry_z1 = tk.Entry(root)
+start_entry_z1.grid(row=22, column=1, padx=10, pady=5)
+
+label_finish_z1 = tk.Label(root, text="Finish:")
+label_finish_z1.grid(row=23, column=0, padx=10, pady=5, sticky="e")
+finish_entry_z1 = tk.Entry(root)
+finish_entry_z1.grid(row=23, column=1, padx=10, pady=5)
+
+show_button_z1 = tk.Button(root, text="Show Workers by ID and date", command=select_enterprise_contacts_by_date)
+show_button_z1.grid(row=24, column=0, columnspan=2, padx=10, pady=5)
 
 # Запуск главного цикла обработки событий
 root.mainloop()
