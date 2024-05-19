@@ -355,6 +355,18 @@ def select_enterprise_contacts_by_date():
         messagebox.showinfo("Error fetching contacts:", e)
 
 
+def count_enterprises_without_email():
+    try:
+        cursor = connection.cursor()
+        query = "SELECT COUNT(*) FROM Enterprises LEFT JOIN EnterpriseEmails ON Enterprises.Id = EnterpriseEmails.EnterpriseId WHERE (StartDate <= %s AND (FinishDate IS NULL OR FinishDate >= %s)) AND (Email IS NULL OR StartDate < %s)"
+        cursor.execute(query, (datetime.strptime(date_entry_email.get(), "%d.%m.%Y"), datetime.strptime(date_entry_email.get(), "%d.%m.%Y"), datetime.strptime(date_entry_email.get(), "%d.%m.%Y")))
+        count = cursor.fetchone()[0]
+        print(count)
+        messagebox.showinfo("Count", count)
+    except psycopg2.Error as e:
+        messagebox.showinfo("Error counting enterprises without email:", e)
+
+
 # Создание главного окна
 root = tk.Tk()
 root.title("Enterprise Management System")
@@ -429,36 +441,36 @@ show_button_con.grid(row=12, column=0, columnspan=2, padx=10, pady=5)
 
 # Поля для добавления email
 label_email_loc = tk.Label(root, text="Address:")
-label_email_loc.grid(row=6, column=9, padx=10, pady=5, sticky="e")
+label_email_loc.grid(row=6, column=6, padx=10, pady=5, sticky="e")
 name_entry_loc = tk.Entry(root)
-name_entry_loc.grid(row=6, column=10, padx=10, pady=5)
+name_entry_loc.grid(row=6, column=7, padx=10, pady=5)
 
 label_enterprise_loc = tk.Label(root, text="Enterprise ID:")
-label_enterprise_loc.grid(row=7, column=9, padx=10, pady=5, sticky="e")
+label_enterprise_loc.grid(row=7, column=6, padx=10, pady=5, sticky="e")
 enterprise_entry_loc = tk.Entry(root)
-enterprise_entry_loc.grid(row=7, column=10, padx=10, pady=5)
+enterprise_entry_loc.grid(row=7, column=7, padx=10, pady=5)
 
 label_start_loc = tk.Label(root, text="Start:")
-label_start_loc.grid(row=8, column=9, padx=10, pady=5, sticky="e")
+label_start_loc.grid(row=8, column=6, padx=10, pady=5, sticky="e")
 start_entry_loc = tk.Entry(root)
-start_entry_loc.grid(row=8, column=10, padx=10, pady=5)
+start_entry_loc.grid(row=8, column=7, padx=10, pady=5)
 
 label_finish_loc = tk.Label(root, text="Finish:")
-label_finish_loc.grid(row=9, column=9, padx=10, pady=5, sticky="e")
+label_finish_loc.grid(row=9, column=6, padx=10, pady=5, sticky="e")
 finish_entry_loc = tk.Entry(root)
-finish_entry_loc.grid(row=9, column=10, padx=10, pady=5)
+finish_entry_loc.grid(row=9, column=7, padx=10, pady=5)
 
 add_button_loc = tk.Button(root, text="Add Address", command=insert_enterprise_location)
-add_button_loc.grid(row=10, column=9, columnspan=2, padx=10, pady=5)
+add_button_loc.grid(row=10, column=6, columnspan=2, padx=10, pady=5)
 
 # Поля для поиска адреса
 label_number_loc = tk.Label(root, text="Enterprise ID:")
-label_number_loc.grid(row=11, column=9, padx=10, pady=5, sticky="e")
+label_number_loc.grid(row=11, column=6, padx=10, pady=5, sticky="e")
 id_entry_loc = tk.Entry(root)
-id_entry_loc.grid(row=11, column=10, padx=10, pady=5)
+id_entry_loc.grid(row=11, column=7, padx=10, pady=5)
 
 show_button_email = tk.Button(root, text="Show Addresses by ID", command=get_enterprise_locations)
-show_button_email.grid(row=12, column=9, columnspan=2, padx=10, pady=5)
+show_button_email.grid(row=12, column=6, columnspan=2, padx=10, pady=5)
 
 # Поля для добавления email
 label_email_email = tk.Label(root, text="Email:")
@@ -542,22 +554,31 @@ show_button_worker.grid(row=20, column=0, columnspan=2, padx=10, pady=5)
 
 # Поля для поиска работников
 label_number_z1 = tk.Label(root, text="Enterprise ID:")
-label_number_z1.grid(row=21, column=0, padx=10, pady=5, sticky="e")
+label_number_z1.grid(row=13, column=2, padx=10, pady=5, sticky="e")
 id_entry_z1 = tk.Entry(root)
-id_entry_z1.grid(row=21, column=1, padx=10, pady=5)
+id_entry_z1.grid(row=13, column=3, padx=10, pady=5)
 
 label_start_z1 = tk.Label(root, text="Start:")
-label_start_z1.grid(row=22, column=0, padx=10, pady=5, sticky="e")
+label_start_z1.grid(row=14, column=2, padx=10, pady=5, sticky="e")
 start_entry_z1 = tk.Entry(root)
-start_entry_z1.grid(row=22, column=1, padx=10, pady=5)
+start_entry_z1.grid(row=14, column=3, padx=10, pady=5)
 
 label_finish_z1 = tk.Label(root, text="Finish:")
-label_finish_z1.grid(row=23, column=0, padx=10, pady=5, sticky="e")
+label_finish_z1.grid(row=15, column=2, padx=10, pady=5, sticky="e")
 finish_entry_z1 = tk.Entry(root)
-finish_entry_z1.grid(row=23, column=1, padx=10, pady=5)
+finish_entry_z1.grid(row=15, column=3, padx=10, pady=5)
 
 show_button_z1 = tk.Button(root, text="Show Workers by ID and date", command=select_enterprise_contacts_by_date)
-show_button_z1.grid(row=24, column=0, columnspan=2, padx=10, pady=5)
+show_button_z1.grid(row=16, column=2, columnspan=2, padx=10, pady=5)
+
+label_start_z1 = tk.Label(root, text="Date:")
+label_start_z1.grid(row=13, column=6, padx=10, pady=5, sticky="e")
+date_entry_email = tk.Entry(root)
+date_entry_email.grid(row=13, column=7, padx=10, pady=5)
+
+show_button_email_date = tk.Button(root, text="Show Emails by ID and date", command=count_enterprises_without_email)
+show_button_email_date.grid(row=14, column=6, columnspan=2, padx=10, pady=5)
+
 
 # Запуск главного цикла обработки событий
 root.mainloop()
