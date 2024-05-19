@@ -217,7 +217,7 @@ def insert_manager():
         else:
             finish_date = finish_entry_con.get()
             # Обновляем записи с предыдущим номером телефона, чтобы указать их недействительность
-            update_query = "UPDATE EnterpriseManagers SET FinishDate = %s WHERE EnterpriseId = %s AND Email = %s AND FinishDate IS NULL;"
+            update_query = "UPDATE EnterpriseManagers SET FinishDate = %s WHERE EnterpriseId = %s AND  ManagerName  = %s AND FinishDate IS NULL;"
             cursor.execute(update_query, (finish_date, enterprise_entry_worker.get(), name_entry_worker.get()))
 
             # Вставляем новую запись с новым номером телефона
@@ -359,7 +359,27 @@ def count_enterprises_without_email():
     try:
         cursor = connection.cursor()
         query = "SELECT COUNT(*) FROM Enterprises LEFT JOIN EnterpriseEmails ON Enterprises.Id = EnterpriseEmails.EnterpriseId WHERE (StartDate <= %s AND (FinishDate IS NULL OR FinishDate >= %s)) AND (Email IS NULL OR StartDate < %s)"
-        cursor.execute(query, (datetime.strptime(date_entry_email.get(), "%d.%m.%Y"), datetime.strptime(date_entry_email.get(), "%d.%m.%Y"), datetime.strptime(date_entry_email.get(), "%d.%m.%Y")))
+        cursor.execute(query, (
+        datetime.strptime(date_entry_email.get(), "%d.%m.%Y"), datetime.strptime(date_entry_email.get(), "%d.%m.%Y"),
+        datetime.strptime(date_entry_email.get(), "%d.%m.%Y")))
+        count = cursor.fetchone()[0]
+        print(count)
+        messagebox.showinfo("Count", count)
+    except psycopg2.Error as e:
+        messagebox.showinfo("Error counting enterprises without email:", e)
+
+
+def select_enterprise_with_most_manager_changes():
+    try:
+        if finish_entry_lead.get() == '':
+            finish_date = datetime.now().date()
+        else:
+            finish_date = datetime.strptime(finish_entry_lead.get(), "%d.%m.%Y")
+        cursor = connection.cursor()
+        query = "SELECT EnterpriseId FROM (SELECT EnterpriseId, COUNT(*) AS manager_changes FROM EnterpriseManagers WHERE (StartDate >= %s AND StartDate <= %s) OR (FinishDate >= %s AND FinishDate <= %s) GROUP BY EnterpriseId ORDER BY manager_changes DESC LIMIT 1) AS max_changes"
+        cursor.execute(query, (datetime.strptime(start_entry_lead.get(), "%d.%m.%Y"),
+                               finish_date, datetime.strptime(start_entry_lead.get(), "%d.%m.%Y"),
+                               finish_date))
         count = cursor.fetchone()[0]
         print(count)
         messagebox.showinfo("Count", count)
@@ -571,14 +591,26 @@ finish_entry_z1.grid(row=15, column=3, padx=10, pady=5)
 show_button_z1 = tk.Button(root, text="Show Workers by ID and date", command=select_enterprise_contacts_by_date)
 show_button_z1.grid(row=16, column=2, columnspan=2, padx=10, pady=5)
 
-label_start_z1 = tk.Label(root, text="Date:")
-label_start_z1.grid(row=13, column=6, padx=10, pady=5, sticky="e")
+label_start_email1 = tk.Label(root, text="Date:")
+label_start_email1.grid(row=13, column=6, padx=10, pady=5, sticky="e")
 date_entry_email = tk.Entry(root)
 date_entry_email.grid(row=13, column=7, padx=10, pady=5)
 
 show_button_email_date = tk.Button(root, text="Show Emails by ID and date", command=count_enterprises_without_email)
 show_button_email_date.grid(row=14, column=6, columnspan=2, padx=10, pady=5)
 
+label_start_lead = tk.Label(root, text="Start:")
+label_start_lead.grid(row=15, column=6, padx=10, pady=5, sticky="e")
+start_entry_lead = tk.Entry(root)
+start_entry_lead.grid(row=15, column=7, padx=10, pady=5)
+
+label_start_z1 = tk.Label(root, text="Finish:")
+label_start_z1.grid(row=16, column=6, padx=10, pady=5, sticky="e")
+finish_entry_lead = tk.Entry(root)
+finish_entry_lead.grid(row=16, column=7, padx=10, pady=5)
+
+show_button_finish_date = tk.Button(root, text="Show Name", command=select_enterprise_with_most_manager_changes)
+show_button_finish_date.grid(row=17, column=6, columnspan=2, padx=10, pady=5)
 
 # Запуск главного цикла обработки событий
 root.mainloop()
